@@ -1,14 +1,15 @@
 import React from 'react';
-import { UserStats, Track } from '../types';
-import { Settings, QrCode, Heart, Map, Clock, Zap, Activity, Share2, MoreHorizontal } from 'lucide-react';
+import { UserStats, Track, GroupHike } from '../types';
+import { Settings, QrCode, Heart, Map, Clock, Zap, Activity, Share2, MoreHorizontal, Users } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface HomeViewProps {
     myTracks: Track[];
+    myGroupHikes: GroupHike[];
     onPublishTrack: (track: Track) => void;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ myTracks, onPublishTrack }) => {
+const HomeView: React.FC<HomeViewProps> = ({ myTracks, myGroupHikes, onPublishTrack }) => {
   const stats: UserStats = {
     totalDistanceKm: 124.5 + (myTracks.reduce((acc, t) => acc + parseFloat(t.distance), 0)),
     hikesCompleted: 14 + myTracks.length,
@@ -79,7 +80,7 @@ const HomeView: React.FC<HomeViewProps> = ({ myTracks, onPublishTrack }) => {
       </div>
 
       {/* Track Library */}
-      <div className="px-4 mt-2">
+      <div className="px-4 mt-2 mb-2">
          <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-lg text-gray-800">Track Library</h3>
             <span className="text-xs text-hike-green font-bold">View All</span>
@@ -87,7 +88,7 @@ const HomeView: React.FC<HomeViewProps> = ({ myTracks, onPublishTrack }) => {
 
          <div className="space-y-3">
              {myTracks.length === 0 && (
-                 <div className="text-center text-gray-400 py-8 text-sm">No recorded tracks yet. Go hike!</div>
+                 <div className="text-center text-gray-400 py-4 text-sm bg-white rounded-xl border border-dashed">No recorded tracks yet.</div>
              )}
 
              {myTracks.map(track => (
@@ -130,6 +131,39 @@ const HomeView: React.FC<HomeViewProps> = ({ myTracks, onPublishTrack }) => {
                    </div>
                 </div>
              </div>
+         </div>
+      </div>
+
+      {/* My Organized/Joined Hikes */}
+      <div className="px-4 mt-2">
+         <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-lg text-gray-800">My Activities</h3>
+         </div>
+         
+         <div className="space-y-3">
+             {myGroupHikes.length === 0 ? (
+                 <div className="text-center text-gray-400 py-4 text-sm bg-white rounded-xl border border-dashed">
+                     No upcoming group hikes. Organize one in "Find Partner"!
+                 </div>
+             ) : (
+                 myGroupHikes.map(hike => (
+                     <div key={hike.id} className="bg-orange-50 p-3 rounded-xl shadow-sm border border-orange-100 flex items-center gap-3 animate-fade-in">
+                        <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center text-orange-500">
+                            <Users size={24} />
+                        </div>
+                        <div className="flex-1">
+                            <div className="font-bold text-gray-800 text-sm truncate">{hike.title}</div>
+                            <div className="text-xs text-gray-600 flex gap-2 mt-1">
+                                <span className="flex items-center gap-1"><Clock size={10}/> {hike.date}</span>
+                                <span className="flex items-center gap-1">Member: {hike.currentMembers}/{hike.maxMembers}</span>
+                            </div>
+                        </div>
+                        <span className="text-[10px] bg-orange-200 text-orange-800 px-2 py-1 rounded font-bold">
+                            OWNER
+                        </span>
+                     </div>
+                 ))
+             )}
          </div>
       </div>
     </div>

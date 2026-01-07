@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tab, Route, Track } from './types';
+import { Tab, Route, Track, GroupHike } from './types';
 import PlanningView from './components/PlanningView';
 import CompanionView from './components/CompanionView';
 import HomeView from './components/HomeView';
@@ -39,6 +39,7 @@ const App: React.FC = () => {
   // Global State
   const [routes, setRoutes] = useState<Route[]>(MOCK_ROUTES);
   const [myTracks, setMyTracks] = useState<Track[]>([]);
+  const [myGroupHikes, setMyGroupHikes] = useState<GroupHike[]>([]);
 
   const handleRouteSelect = (route: Route) => {
     setCurrentRoute(route);
@@ -70,16 +71,21 @@ const App: React.FC = () => {
     setActiveTab(Tab.PLANNING);
   };
 
+  const handleCreateGroupHike = (hike: GroupHike) => {
+      setMyGroupHikes(prev => [hike, ...prev]);
+      alert("Group Hike Created! It is now visible on your Profile.");
+  };
+
   const renderContent = () => {
     switch (activeTab) {
       case Tab.PLANNING:
-        return <PlanningView routes={routes} onSelectRoute={handleRouteSelect} />;
+        return <PlanningView routes={routes} onSelectRoute={handleRouteSelect} onCreateGroupHike={handleCreateGroupHike} />;
       case Tab.COMPANION:
         return <CompanionView activeRoute={currentRoute} onSaveTrack={handleSaveTrack} />;
       case Tab.HOME:
-        return <HomeView myTracks={myTracks} onPublishTrack={handlePublishTrack} />;
+        return <HomeView myTracks={myTracks} myGroupHikes={myGroupHikes} onPublishTrack={handlePublishTrack} />;
       default:
-        return <PlanningView routes={routes} onSelectRoute={handleRouteSelect} />;
+        return <PlanningView routes={routes} onSelectRoute={handleRouteSelect} onCreateGroupHike={handleCreateGroupHike} />;
     }
   };
 

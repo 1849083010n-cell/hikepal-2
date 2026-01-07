@@ -60,3 +60,23 @@ export interface UserStats {
   elevationGainedM: number;
   status: string;
 }
+
+export interface HikingEvent {
+  id: string;
+  title: string;
+  type: 'cleanup' | 'maintenance' | 'guide' | 'hike';
+  date: string;
+  location: string;
+  participants: number;
+  imageUrl: string;
+}
+
+export interface GroupHike {
+  id: string;
+  title: string;
+  date: string;
+  description: string;
+  maxMembers: number;
+  currentMembers: number;
+  isOrganizer: boolean;
+}

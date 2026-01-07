@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Message, Route, Teammate, Track, Waypoint } from '../types';
 import { generateHikingAdvice } from '../services/geminiService';
-import { Mic, Send, Navigation, Camera, AlertCircle, Map as MapIcon, Users, Droplet, Tent, Cigarette, Info, MessageSquare, Play, Square, Save, MapPin } from 'lucide-react';
+import { Mic, Send, Navigation, Camera, AlertCircle, Map as MapIcon, Users, Droplet, Tent, Cigarette, Info, MessageSquare, Play, Square, Save, MapPin, Thermometer, Wind, Mountain, Heart, Battery, Flame, Zap, Phone, Bell, ShieldAlert } from 'lucide-react';
 
 const L = (window as any).L;
 
@@ -28,6 +28,18 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
   const [chatType, setChatType] = useState<'ai' | 'team'>('ai');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [trackName, setTrackName] = useState(activeRoute?.name || 'My Hike');
+  const [showSOS, setShowSOS] = useState(false);
+
+  // Risk Shield State
+  const [deviceConnected, setDeviceConnected] = useState(true);
+  const [riskStats, setRiskStats] = useState({
+      temp: 24,
+      humidity: 78,
+      altitude: 284,
+      heartRate: 110,
+      battery: 85,
+      calories: 320
+  });
 
   // Tracking State
   const [userPos, setUserPos] = useState<[number, number]>(USER_START_POS);
@@ -50,6 +62,13 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
     if (isRecording) {
         timerRef.current = setInterval(() => {
             setElapsedTime(prev => prev + 1);
+            // Simulate Risk Shield Updates
+            setRiskStats(prev => ({
+                ...prev,
+                altitude: Math.max(0, prev.altitude + (Math.random() > 0.5 ? 1 : -1)),
+                heartRate: Math.min(180, Math.max(60, prev.heartRate + Math.floor(Math.random() * 5) - 2)),
+                calories: prev.calories + 0.5
+            }));
         }, 1000);
     } else {
         if (timerRef.current) clearInterval(timerRef.current);
@@ -90,9 +109,13 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
         const map = L.map(mapContainerRef.current, {
             zoomControl: false,
             attributionControl: false
-        }).setView(USER_START_POS, 16);
+        }).setView(USER_START_POS, 15);
 
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 19 }).addTo(map);
+        // Revert to CartoDB Light for a cleaner look
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        }).addTo(map);
 
         // Active Route Line (Static reference)
         L.polyline([
@@ -141,13 +164,6 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
         } else {
             marker.setLatLng([t.lat, t.lng]);
         }
-    });
-
-    // Update Waypoints
-    waypoints.forEach(wp => {
-        // Simple check to avoid duplicates strictly for this demo (by id check logic inside adding, but here we just re-render is fine if not many)
-        // Ideally we track added markers. For demo, we just add new ones if we clear/redraw or just add once.
-        // Let's just add the last one if it's new.
     });
 
   }, [userPos, teammates, recordedPath, waypoints, isRecording, mode]);
@@ -251,8 +267,62 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
     }
   };
 
+  const handleSOS = () => {
+      setShowSOS(true);
+  };
+
   return (
     <div className="flex flex-col h-full bg-gray-100 relative">
+      {/* SOS Overlay */}
+      {showSOS && (
+          <div className="absolute inset-0 z-[2000] bg-red-600/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-white text-center animate-fade-in">
+            <ShieldAlert size={64} className="mb-4 animate-bounce" />
+            <h2 className="text-4xl font-black mb-2 tracking-tighter">SOS ACTIVE</h2>
+            <p className="mb-6 opacity-90">Emergency Mode Engaged</p>
+            
+            <div className="bg-white/20 p-6 rounded-2xl w-full mb-6 border border-white/30 backdrop-blur-md">
+                <div className="text-xs uppercase opacity-70 mb-1 font-bold">Your Current Location</div>
+                <div className="font-mono text-3xl font-bold tracking-widest flex flex-col items-center justify-center">
+                    <span>{userPos[0].toFixed(5)} N</span>
+                    <span>{userPos[1].toFixed(5)} E</span>
+                </div>
+                <div className="text-sm mt-3 flex items-center justify-center gap-1 opacity-80 border-t border-white/20 pt-2">
+                    <MapPin size={14} /> Altitude: {riskStats.altitude}m
+                </div>
+            </div>
+
+            <div className="w-full space-y-3">
+                <a href="tel:999" className="block w-full bg-white text-red-600 py-4 rounded-xl font-bold text-xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                    <Phone size={24} /> Call Emergency (999)
+                </a>
+                <button 
+                    onClick={() => {
+                        const sosMsg: Message = {
+                            id: Date.now().toString(),
+                            sender: 'user',
+                            text: `🚨 SOS! Emergency at ${userPos[0].toFixed(5)}, ${userPos[1].toFixed(5)}. Altitude: ${riskStats.altitude}m.`,
+                            timestamp: new Date()
+                        };
+                        setMessages(prev => [...prev, sosMsg]);
+                        alert("Emergency alert sent to teammates and emergency contacts!");
+                        setChatType('team'); // Switch to team chat to see context
+                        setMode('chat'); // Switch to chat mode
+                        setShowSOS(false);
+                    }}
+                    className="block w-full bg-black/40 hover:bg-black/50 text-white py-4 rounded-xl font-bold text-lg border border-white/20 flex items-center justify-center gap-2 active:scale-95 transition-transform"
+                >
+                     <Bell size={20} /> Notify Teammates
+                </button>
+                <button 
+                    onClick={() => setShowSOS(false)} 
+                    className="block w-full py-4 text-white/80 font-bold text-sm mt-4"
+                >
+                    Cancel Alert
+                </button>
+            </div>
+          </div>
+      )}
+
       {/* Save Dialog Overlay */}
       {showSaveDialog && (
           <div className="absolute inset-0 z-[1000] bg-black/60 flex items-center justify-center p-4">
@@ -290,16 +360,81 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
       <div className={`relative transition-all duration-300 ${mode === 'map' ? 'h-[75%]' : 'h-[40%]'}`}>
         <div ref={mapContainerRef} className="absolute inset-0 bg-gray-200 z-0" />
         
-        {/* Status Overlay */}
-        <div className="absolute top-4 left-4 z-[400] flex flex-col gap-2">
-            <div className={`bg-white/90 backdrop-blur px-3 py-1.5 rounded-full shadow border border-gray-200 text-xs font-bold text-gray-700 flex items-center gap-2 transition-all ${isRecording ? 'border-red-500 text-red-600' : ''}`}>
-                <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-400'}`}></div>
-                {formatTime(elapsedTime)}
+        {/* Risk Shield Dashboard */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[450] flex flex-col items-center">
+            <div className={`bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-white/50 p-2 transition-all duration-300 ${deviceConnected ? 'w-[90vw] max-w-xs' : 'w-auto'}`}>
+                <div className="flex items-center justify-around gap-2 text-xs font-bold text-gray-700">
+                    <div className="flex flex-col items-center">
+                        <Thermometer size={14} className="text-orange-500 mb-0.5" />
+                        <span>{riskStats.temp}°C</span>
+                    </div>
+                     <div className="flex flex-col items-center">
+                        <Wind size={14} className="text-blue-500 mb-0.5" />
+                        <span>{riskStats.humidity}%</span>
+                    </div>
+                     <div className="flex flex-col items-center">
+                        <Mountain size={14} className="text-gray-600 mb-0.5" />
+                        <span>{riskStats.altitude}m</span>
+                    </div>
+                    {/* Device Toggle */}
+                    <button 
+                        onClick={() => setDeviceConnected(!deviceConnected)}
+                        className={`p-1 rounded bg-gray-100 ${deviceConnected ? 'text-hike-green' : 'text-gray-400'}`}
+                    >
+                        <Zap size={14} fill={deviceConnected ? "currentColor" : "none"} />
+                    </button>
+                </div>
+
+                {/* Extended Stats (Device) */}
+                {deviceConnected && (
+                    <div className="mt-2 pt-2 border-t border-gray-100 grid grid-cols-3 gap-2 animate-fade-in">
+                        <div className="flex flex-col items-center">
+                             <div className="flex items-center gap-1 text-red-500">
+                                <Heart size={12} fill="currentColor" className="animate-pulse" />
+                                <span className="font-bold text-sm">{riskStats.heartRate}</span>
+                             </div>
+                             <span className="text-[9px] text-gray-400">BPM</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                             <div className="flex items-center gap-1 text-green-600">
+                                <Battery size={12} />
+                                <span className="font-bold text-sm">{riskStats.battery}%</span>
+                             </div>
+                             <span className="text-[9px] text-gray-400">Device</span>
+                        </div>
+                        <div className="flex flex-col items-center">
+                             <div className="flex items-center gap-1 text-orange-600">
+                                <Flame size={12} />
+                                <span className="font-bold text-sm">{Math.floor(riskStats.calories)}</span>
+                             </div>
+                             <span className="text-[9px] text-gray-400">Kcal</span>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
 
+        {/* Recording Status (Moved below risk shield) */}
+        {isRecording && (
+            <div className="absolute top-24 left-4 z-[400]">
+                <div className="bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold shadow animate-pulse flex items-center gap-1">
+                   <div className="w-2 h-2 bg-white rounded-full"></div> REC {formatTime(elapsedTime)}
+                </div>
+            </div>
+        )}
+
         {/* Map Controls */}
-        <div className="absolute top-4 right-4 z-[400] flex flex-col gap-2">
+        <div className="absolute top-20 right-4 z-[400] flex flex-col gap-2">
+            {/* SOS Button - Positioned prominently */}
+            <button 
+                onClick={handleSOS}
+                className="bg-red-600 text-white p-3 rounded-full shadow-lg font-bold flex items-center justify-center animate-pulse active:scale-95 transition-transform border-2 border-white"
+            >
+                <span className="font-black text-[10px] leading-tight">SOS</span>
+            </button>
+        </div>
+
+        <div className="absolute bottom-10 right-4 z-[400] flex flex-col gap-2">
              {/* Record Toggle */}
             <button 
                 onClick={() => isRecording ? handleFinishRecording() : setIsRecording(true)}
