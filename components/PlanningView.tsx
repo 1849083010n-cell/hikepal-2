@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Route, HikingEvent, GroupHike } from '../types';
-import { MapPin, Download, MessageSquare, Users, Calendar, ChevronRight, Star, Mountain, User, ArrowLeft, Plus, Flag, Recycle, ShieldAlert, Share2 } from 'lucide-react';
+import { MapPin, Download, MessageSquare, Users, Calendar, ChevronRight, Star, Mountain, User, ArrowLeft, Plus, Flag, Recycle, ShieldAlert, Share2, Search, Sparkles, Globe, DownloadCloud, ThumbsUp } from 'lucide-react';
 
 interface PlanningViewProps {
   routes: Route[];
@@ -14,10 +14,18 @@ const MOCK_EVENTS: HikingEvent[] = [
     { id: 'e3', title: 'Trail Ribbon Placement Guide', type: 'guide', date: 'Sat, 19 Oct', location: 'Sai Kung', participants: 28, imageUrl: 'https://picsum.photos/400/200?random=12' },
 ];
 
+const MOCK_COMMUNITY_ROUTES = [
+  { id: 'c1', name: 'Secret Waterfall Trail', uploader: 'Sam H.', rating: 4.9, distance: '3.2 km', difficulty: 4, region: 'Tai Po', tags: ['Waterfall', 'Hidden Gem', 'Steep'], downloads: 1205 },
+  { id: 'c2', name: 'Sunset Peak via Hidden Path', uploader: 'Lisa K.', rating: 4.7, distance: '5.5 km', difficulty: 3, region: 'Lantau', tags: ['Sunset', 'Photography', 'Grass'], downloads: 892 },
+  { id: 'c3', name: 'Urban Forest Escape', uploader: 'Mike T.', rating: 4.2, distance: '2.0 km', difficulty: 1, region: 'Hong Kong', tags: ['Easy', 'Family', 'Dog Friendly'], downloads: 450 },
+  { id: 'c4', name: 'Cape D\'Aguilar Caves', uploader: 'HikingPro99', rating: 4.8, distance: '8.0 km', difficulty: 2, region: 'Shek O', tags: ['Coastal', 'Caves', 'History'], downloads: 3100 },
+];
+
 const PlanningView: React.FC<PlanningViewProps> = ({ routes, onSelectRoute, onCreateGroupHike }) => {
   const [selectedCity] = useState('Hong Kong');
   const [activeRouteId, setActiveRouteId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'routes' | 'partner' | 'events'>('routes');
+  const [viewMode, setViewMode] = useState<'routes' | 'partner' | 'events' | 'community'>('routes');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Partner Form State
   const [groupTitle, setGroupTitle] = useState('');
@@ -29,7 +37,7 @@ const PlanningView: React.FC<PlanningViewProps> = ({ routes, onSelectRoute, onCr
     return (
       <div className="flex text-yellow-500">
         {[...Array(5)].map((_, i) => (
-          <Star key={i} size={14} fill={i < rating ? "currentColor" : "none"} className={i < rating ? "" : "text-gray-300"} />
+          <Star key={i} size={14} fill={i < Math.floor(rating) ? "currentColor" : "none"} className={i < Math.floor(rating) ? "" : "text-gray-300"} />
         ))}
       </div>
     );
@@ -49,8 +57,99 @@ const PlanningView: React.FC<PlanningViewProps> = ({ routes, onSelectRoute, onCr
       onCreateGroupHike(newGroup);
       setGroupTitle('');
       setGroupDesc('');
-      setViewMode('routes'); // Return to main or keep in partner view?
+      setViewMode('routes');
   };
+
+  const handleDownloadRoute = (route: any) => {
+      alert(`Route "${route.name}" downloaded to your library!`);
+      // In a real app, this would fetch the GPX data and add to 'routes'
+  };
+
+  // --- Sub-View: Community Routes (Database) ---
+  if (viewMode === 'community') {
+      return (
+          <div className="flex flex-col h-full bg-gray-50 animate-fade-in">
+              <div className="bg-white p-4 shadow-sm flex items-center gap-3 sticky top-0 z-20">
+                  <button onClick={() => setViewMode('routes')} className="p-1"><ArrowLeft size={24} /></button>
+                  <h2 className="text-xl font-bold">Community Routes</h2>
+              </div>
+              
+              <div className="p-4 overflow-y-auto pb-20">
+                  {/* AI Search Bar */}
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 mb-6 relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                          <Sparkles size={100} />
+                      </div>
+                      <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                          <Sparkles size={18} className="text-purple-500" /> AI Route Match
+                      </h3>
+                      <div className="relative">
+                          <input 
+                              value={searchQuery}
+                              onChange={e => setSearchQuery(e.target.value)}
+                              placeholder="Describe your ideal hike (e.g. 'Short sunset view with dog')..." 
+                              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-3 pl-10 pr-4 text-sm focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-200 transition-all"
+                          />
+                          <Search size={18} className="absolute left-3 top-3.5 text-gray-400" />
+                      </div>
+                      <div className="flex gap-2 mt-3 flex-wrap">
+                          {['Scenic', 'Hard', 'Coastal', 'Family', 'Dog Friendly'].map(tag => (
+                              <span key={tag} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded-full border border-gray-200 cursor-pointer hover:bg-gray-200">{tag}</span>
+                          ))}
+                      </div>
+                  </div>
+
+                  {/* Route List */}
+                  <h3 className="font-bold text-gray-700 mb-3">Top Rated Uploads</h3>
+                  <div className="space-y-4">
+                      {MOCK_COMMUNITY_ROUTES.map(route => (
+                          <div key={route.id} className="bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                              <div className="flex justify-between items-start mb-2">
+                                  <div>
+                                      <h4 className="font-bold text-gray-900">{route.name}</h4>
+                                      <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                                          <MapPin size={10} /> {route.region}
+                                      </div>
+                                  </div>
+                                  <div className="bg-green-50 text-hike-green px-2 py-1 rounded text-xs font-bold">
+                                      {route.rating} ★
+                                  </div>
+                              </div>
+                              
+                              <div className="flex gap-2 mb-3 flex-wrap">
+                                  {route.tags.map(tag => (
+                                      <span key={tag} className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{tag}</span>
+                                  ))}
+                              </div>
+
+                              <div className="flex items-center justify-between pt-3 border-t border-gray-50">
+                                  <div className="flex items-center gap-2">
+                                      <div className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-[10px] font-bold text-gray-600">
+                                          {route.uploader[0]}
+                                      </div>
+                                      <div className="text-xs text-gray-500">
+                                          by {route.uploader}
+                                      </div>
+                                  </div>
+                                  <div className="flex items-center gap-3">
+                                      <div className="text-xs text-gray-400 flex items-center gap-1">
+                                          <DownloadCloud size={12} /> {route.downloads}
+                                      </div>
+                                      <button 
+                                          onClick={() => handleDownloadRoute(route)}
+                                          className="p-2 bg-gray-900 text-white rounded-lg active:scale-95 transition-transform"
+                                      >
+                                          <Download size={16} />
+                                      </button>
+                                  </div>
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      );
+  }
 
   // --- Sub-View: Events ---
   if (viewMode === 'events') {
@@ -273,30 +372,44 @@ const PlanningView: React.FC<PlanningViewProps> = ({ routes, onSelectRoute, onCr
           <div className="text-sm text-gray-500">Sunny, 24°C</div>
         </div>
         
-        {/* Functional Buttons (Active Now) */}
-        <div className="grid grid-cols-2 gap-4 mb-2">
+        {/* Functional Buttons (Horizontal Scroll) */}
+        <div className="flex gap-3 overflow-x-auto pb-2 mb-2 no-scrollbar">
            <button 
                 onClick={() => setViewMode('partner')}
-                className="bg-orange-50 p-3 rounded-xl border border-orange-100 flex items-center gap-3 transition-transform active:scale-95 shadow-sm"
+                className="min-w-[140px] bg-orange-50 p-3 rounded-xl border border-orange-100 flex flex-col items-start gap-2 transition-transform active:scale-95 shadow-sm"
             >
               <div className="bg-orange-100 p-2 rounded-full text-orange-600">
                 <Users size={20} />
               </div>
               <div className="text-left">
                 <div className="font-bold text-sm text-gray-800">Find Partner</div>
-                <div className="text-xs text-gray-500">Organize Team</div>
+                <div className="text-[10px] text-gray-500">Organize Team</div>
               </div>
            </button>
+
+           <button 
+                onClick={() => setViewMode('community')}
+                className="min-w-[140px] bg-purple-50 p-3 rounded-xl border border-purple-100 flex flex-col items-start gap-2 transition-transform active:scale-95 shadow-sm"
+           >
+              <div className="bg-purple-100 p-2 rounded-full text-purple-600">
+                <Globe size={20} />
+              </div>
+              <div className="text-left">
+                <div className="font-bold text-sm text-gray-800">Route DB</div>
+                <div className="text-[10px] text-gray-500">Download GPX</div>
+              </div>
+           </button>
+
            <button 
                 onClick={() => setViewMode('events')}
-                className="bg-blue-50 p-3 rounded-xl border border-blue-100 flex items-center gap-3 transition-transform active:scale-95 shadow-sm"
+                className="min-w-[140px] bg-blue-50 p-3 rounded-xl border border-blue-100 flex flex-col items-start gap-2 transition-transform active:scale-95 shadow-sm"
            >
               <div className="bg-blue-100 p-2 rounded-full text-blue-600">
                 <Calendar size={20} />
               </div>
               <div className="text-left">
                 <div className="font-bold text-sm text-gray-800">Events</div>
-                <div className="text-xs text-gray-500">Official Hikes</div>
+                <div className="text-[10px] text-gray-500">Official Hikes</div>
               </div>
            </button>
         </div>
