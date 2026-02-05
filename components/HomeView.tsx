@@ -1,15 +1,16 @@
 import React from 'react';
 import { UserStats, Track, GroupHike } from '../types';
-import { Settings, QrCode, Heart, Map, Clock, Zap, Activity, Share2, MoreHorizontal, Users } from 'lucide-react';
+import { Settings, QrCode, Heart, Map, Clock, Zap, Activity, Share2, MoreHorizontal, Users, Database } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 
 interface HomeViewProps {
     myTracks: Track[];
     myGroupHikes: GroupHike[];
     onPublishTrack: (track: Track) => void;
+    onOpenAdmin: () => void;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ myTracks, myGroupHikes, onPublishTrack }) => {
+const HomeView: React.FC<HomeViewProps> = ({ myTracks, myGroupHikes, onPublishTrack, onOpenAdmin }) => {
   const stats: UserStats = {
     totalDistanceKm: 124.5 + (myTracks.reduce((acc, t) => acc + parseFloat(t.distance), 0)),
     hikesCompleted: 14 + myTracks.length,
@@ -45,7 +46,9 @@ const HomeView: React.FC<HomeViewProps> = ({ myTracks, myGroupHikes, onPublishTr
                </div>
             </div>
             <div className="flex gap-3">
-               <button className="p-2 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200"><QrCode size={20}/></button>
+               <button onClick={onOpenAdmin} className="p-2 bg-gray-900 text-white rounded-full shadow-lg hover:bg-gray-800 transition-transform active:scale-95" title="Admin Data Entry">
+                  <Database size={20}/>
+               </button>
                <button className="p-2 bg-gray-100 rounded-full text-gray-600 hover:bg-gray-200"><Settings size={20}/></button>
             </div>
          </div>

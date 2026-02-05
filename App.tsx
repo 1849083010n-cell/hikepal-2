@@ -3,6 +3,7 @@ import { Tab, Route, Track, GroupHike } from './types';
 import PlanningView from './components/PlanningView';
 import CompanionView from './components/CompanionView';
 import HomeView from './components/HomeView';
+import AdminView from './components/AdminView';
 import { Map, User, Compass } from 'lucide-react';
 
 const MOCK_ROUTES: Route[] = [
@@ -83,11 +84,22 @@ const App: React.FC = () => {
       case Tab.COMPANION:
         return <CompanionView activeRoute={currentRoute} onSaveTrack={handleSaveTrack} />;
       case Tab.HOME:
-        return <HomeView myTracks={myTracks} myGroupHikes={myGroupHikes} onPublishTrack={handlePublishTrack} />;
+        return <HomeView myTracks={myTracks} myGroupHikes={myGroupHikes} onPublishTrack={handlePublishTrack} onOpenAdmin={() => setActiveTab(Tab.ADMIN)} />;
+      case Tab.ADMIN:
+        return <AdminView onBack={() => setActiveTab(Tab.HOME)} />;
       default:
         return <PlanningView routes={routes} onSelectRoute={handleRouteSelect} onCreateGroupHike={handleCreateGroupHike} />;
     }
   };
+
+  // If in Admin mode, hide bottom nav for full screen focus
+  if (activeTab === Tab.ADMIN) {
+      return (
+          <div className="flex flex-col h-full w-full bg-white max-w-md mx-auto shadow-2xl relative overflow-hidden">
+             {renderContent()}
+          </div>
+      );
+  }
 
   return (
     <div className="flex flex-col h-full w-full bg-white max-w-md mx-auto shadow-2xl relative overflow-hidden">

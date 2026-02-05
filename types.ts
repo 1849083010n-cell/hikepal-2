@@ -1,7 +1,9 @@
+
 export enum Tab {
   PLANNING = 'PLANNING',
   COMPANION = 'COMPANION',
-  HOME = 'HOME'
+  HOME = 'HOME',
+  ADMIN = 'ADMIN'
 }
 
 export interface Route {
@@ -22,9 +24,11 @@ export interface Waypoint {
   id: string;
   lat: number;
   lng: number;
-  type: 'photo' | 'marker';
+  type: 'photo' | 'marker' | 'water' | 'toilet' | 'shelter' | 'risk'; // Added amenity types
+  riskType?: 'landslide' | 'no_signal' | 'cliff'; // Specific risk subtype
   note?: string;
   imageUrl?: string;
+  radius?: number; // For risk zones
 }
 
 export interface Track {

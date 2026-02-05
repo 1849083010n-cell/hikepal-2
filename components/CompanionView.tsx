@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Message, Route, Teammate, Track, Waypoint } from '../types';
 import { generateHikingAdvice } from '../services/geminiService';
-import { Mic, Send, Navigation, Camera, AlertCircle, Map as MapIcon, Users, Droplet, Tent, Cigarette, Info, MessageSquare, Play, Square, Save, MapPin, Thermometer, Wind, Mountain, Heart, Battery, Flame, Zap, Phone, Bell, ShieldAlert } from 'lucide-react';
+import { supabase, isSupabaseConfigured } from '../services/supabaseClient'; // Import config check
+import { Mic, Send, Navigation, Camera, AlertCircle, Map as MapIcon, Users, Droplet, Tent, Cigarette, Info, MessageSquare, Play, Square, Save, MapPin, Thermometer, Wind, Mountain, Heart, Battery, Flame, Zap, Phone, Bell, ShieldAlert, Home, AlertTriangle } from 'lucide-react';
 
 const L = (window as any).L;
 
@@ -10,16 +11,17 @@ interface CompanionViewProps {
   onSaveTrack: (track: Track) => void;
 }
 
+// --- MOCK DATA FOR DRAGON'S BACK DEMO ---
 const MOCK_TEAMMATES_INIT: Teammate[] = [
   { id: 't1', name: 'Alice', lat: 22.228, lng: 114.242, status: 'active', avatar: 'https://picsum.photos/40/40?random=1' },
   { id: 't2', name: 'Bob', lat: 22.227, lng: 114.2415, status: 'active', avatar: 'https://picsum.photos/40/40?random=2' },
 ];
 
-const USER_START_POS: [number, number] = [22.2285, 114.2425];
+const USER_START_POS: [number, number] = [22.2225, 114.2415]; // Adjusted slightly to be near amenities
 
 const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack }) => {
   const [messages, setMessages] = useState<Message[]>([
-    { id: '1', sender: 'ai', text: 'Hello! HikePal AI here. I see you are near the peak. I am tracking your location. How can I assist?', timestamp: new Date() }
+    { id: '1', sender: 'ai', text: 'Hello! HikePal AI here. I am connecting to your database to load trail info...', timestamp: new Date() }
   ]);
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -29,6 +31,9 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [trackName, setTrackName] = useState(activeRoute?.name || 'My Hike');
   const [showSOS, setShowSOS] = useState(false);
+
+  // Database POIs state
+  const [dbPois, setDbPois] = useState<Waypoint[]>([]);
 
   // Risk Shield State
   const [deviceConnected, setDeviceConnected] = useState(true);
@@ -52,9 +57,98 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
   const mapInstanceRef = useRef<any>(null);
   const userMarkerRef = useRef<any>(null);
   const teammateMarkersRef = useRef<{ [id: string]: any }>({});
-  const polylineRef = useRef<any>(null);
+  const poiMarkersRef = useRef<any[]>([]);
   const recordedPolylineRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
+
+  // --- Fetch Data from Supabase ---
+  useEffect(() => {
+    const fetchMapData = async () => {
+        if (!isSupabaseConfigured) {
+            setMessages(prev => [...prev, { 
+                id: 'sys-alert', 
+                sender: 'ai', 
+                text: '⚠️ Setup Required: Please open "services/supabaseClient.ts" in your code editor and paste your Project URL and API Key.', 
+                timestamp: new Date() 
+            }]);
+            return;
+        }
+
+        const loadedPoints: Waypoint[] = [];
+        console.log("Starting Supabase Sync...");
+
+        // 1. Fetch Facilities (Water, Toilet, Shelter)
+        const { data: facilities, error: facilityError } = await supabase
+            .from('facilities')
+            .select('*');
+        
+        if (facilityError) {
+            console.error("Supabase Facility Error:", facilityError);
+            setMessages(prev => [...prev, { id: 'err-1', sender: 'ai', text: 'Error connecting to database. Please check your API Keys.', timestamp: new Date() }]);
+        }
+
+        if (facilities) {
+            console.log("Facilities Loaded:", facilities);
+            facilities.forEach((f: any) => {
+                // Map DB types to Frontend types
+                // SQL Table values: 'water_station', 'toilet', 'shelter'
+                let type: any = 'marker';
+                if (f.type === 'water_station') type = 'water';
+                else if (f.type === 'toilet') type = 'toilet';
+                else if (f.type === 'shelter') type = 'shelter';
+
+                loadedPoints.push({
+                    id: `fac-${f.id}`,
+                    lat: f.latitude,
+                    lng: f.longitude,
+                    type: type,
+                    note: f.name
+                });
+            });
+        }
+
+        // 2. Fetch Risk Zones
+        // We fetch ALL risks for the demo, regardless of route_id
+        const { data: risks, error: riskError } = await supabase
+            .from('risk_zones')
+            .select('*');
+
+        if (risks) {
+            console.log("Risk Zones Loaded:", risks);
+            risks.forEach((r: any) => {
+                loadedPoints.push({
+                    id: `risk-${r.id}`,
+                    lat: r.latitude,
+                    lng: r.longitude,
+                    type: 'risk',
+                    riskType: r.type as any, // 'cliff', 'landslide', etc.
+                    radius: r.radius,
+                    note: r.message
+                });
+            });
+        }
+
+        setDbPois(loadedPoints);
+
+        if (loadedPoints.length > 0) {
+            setMessages(prev => [...prev, { 
+                id: 'sys-2', 
+                sender: 'ai', 
+                text: `✅ Data Sync Successful! Loaded ${facilities?.length || 0} facilities and ${risks?.length || 0} risk zones from your cloud database.`, 
+                timestamp: new Date() 
+            }]);
+        } else if (!facilityError) {
+             setMessages(prev => [...prev, { 
+                id: 'sys-3', 
+                sender: 'ai', 
+                text: `Connected to database, but no points found. Did you run the SQL INSERT commands?`, 
+                timestamp: new Date() 
+            }]);
+        }
+    };
+
+    fetchMapData();
+  }, []);
 
   // --- Real-time Simulation & Recording Logic ---
   useEffect(() => {
@@ -109,18 +203,18 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
         const map = L.map(mapContainerRef.current, {
             zoomControl: false,
             attributionControl: false
-        }).setView(USER_START_POS, 15);
+        }).setView(USER_START_POS, 14);
 
         // Revert to CartoDB Light for a cleaner look
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             maxZoom: 19,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // Active Route Line (Static reference)
+        // Active Route Line (Static reference - Dragon's Back rough path)
         L.polyline([
           [22.2195, 114.2405], [22.2220, 114.2410], [22.2250, 114.2425],
-          [22.2285, 114.2425], [22.2350, 114.2440], [22.2400, 114.2430]
+          [22.2285, 114.2428], [22.2310, 114.2440], [22.2350, 114.2445], [22.2400, 114.2430]
         ], { color: '#BDBDBD', weight: 4, dashArray: '5, 10' }).addTo(map);
 
         // Recorded Path Line (Dynamic)
@@ -136,6 +230,69 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
 
         mapInstanceRef.current = map;
     }
+
+    // --- RENDER DB POIS ---
+    // Clear existing POI markers
+    poiMarkersRef.current.forEach(m => mapInstanceRef.current.removeLayer(m));
+    poiMarkersRef.current = [];
+
+    dbPois.forEach(poi => {
+             let iconHtml = '';
+             let className = 'custom-poi-marker';
+             let bgClass = '';
+             let iconSvg = '';
+
+             switch(poi.type) {
+                 case 'water':
+                     bgClass = 'bg-blue-500';
+                     iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`; // Droplet
+                     break;
+                 case 'toilet':
+                     bgClass = 'bg-gray-600';
+                     iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6"/><path d="M9 21v-4"/><path d="M15 21v-4"/><path d="M8 9h8a2 2 0 0 1 2 2v2H6v-2a2 2 0 0 1 2-2z"/><rect x="8" y="13" width="8" height="4" rx="1"/></svg>`; // Armchair/Toilet approx
+                     break;
+                 case 'shelter':
+                     bgClass = 'bg-green-600';
+                     iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21v-7l8-6 8 6v7"/></svg>`; // Tent/Home
+                     break;
+                 case 'risk':
+                     bgClass = 'bg-red-500 animate-pulse';
+                     iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4m0 4h.01"/></svg>`; // Alert
+                     break;
+                 default:
+                     bgClass = 'bg-gray-400';
+                     iconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`;
+             }
+
+             const icon = L.divIcon({
+                 className: className,
+                 html: `<div class="${bgClass} w-8 h-8 rounded-full flex items-center justify-center shadow-lg border-2 border-white">${iconSvg}</div>`,
+                 iconSize: [32, 32],
+                 iconAnchor: [16, 32],
+                 popupAnchor: [0, -32]
+             });
+
+             const marker = L.marker([poi.lat, poi.lng], { icon }).addTo(mapInstanceRef.current);
+             marker.bindPopup(`
+                 <div class="text-center">
+                    <strong class="block text-sm text-gray-800">${poi.note}</strong>
+                    <span class="text-xs text-gray-500 uppercase font-bold">${poi.type === 'risk' ? poi.riskType : poi.type}</span>
+                 </div>
+             `);
+             poiMarkersRef.current.push(marker);
+             
+             // If it's a risk zone, add a circle
+             if (poi.type === 'risk' && poi.radius) {
+                 const circle = L.circle([poi.lat, poi.lng], {
+                     radius: poi.radius,
+                     color: '#EF4444',
+                     fillColor: '#FCA5A5',
+                     fillOpacity: 0.3,
+                     weight: 1
+                 }).addTo(mapInstanceRef.current);
+                 poiMarkersRef.current.push(circle);
+             }
+    });
 
     // Update User Marker
     if (userMarkerRef.current) {
@@ -166,7 +323,7 @@ const CompanionView: React.FC<CompanionViewProps> = ({ activeRoute, onSaveTrack 
         }
     });
 
-  }, [userPos, teammates, recordedPath, waypoints, isRecording, mode]);
+  }, [userPos, teammates, recordedPath, waypoints, isRecording, mode, dbPois]);
 
 
   // Handle adding markers dynamically
